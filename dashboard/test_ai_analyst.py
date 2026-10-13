@@ -328,6 +328,18 @@ def test_factory_creates_local_provider_by_default():
         assert type(get_analysis_provider()).__name__ == "LocalAnalysisProvider"
 
 
+@pytest.mark.django_db
+def test_insights_api_returns_kpis_and_recommendations():
+    user = User.objects.create_user(username="insights-user", password="Strong-pass-209!")
+    dataset = create_dataset(user)
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.get(reverse("api_insights"), {"dataset_id": dataset.pk})
+    assert response.status_code == 200
+    assert any(kpi["label"] == "Rows" for kpi in response.data["kpis"])
+    assert response.data["recommendations"]
+
+
 def test_local_provider_returns_chart_for_ranking():
     from dashboard.ai.providers.local_provider import LocalAnalysisProvider
 

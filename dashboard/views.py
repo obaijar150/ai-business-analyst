@@ -25,6 +25,11 @@ def analyst_page(request):
     return render(request, "dashboard/analyst.html", {"gemini_setup_required": setup_required})
 
 
+@login_required
+def insights_page(request):
+    return render(request, "dashboard/insights.html", {})
+
+
 def register(request):
     if request.user.is_authenticated:
         return redirect("dashboard")

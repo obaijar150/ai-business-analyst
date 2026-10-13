@@ -11,6 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .dataset_processing import inspect_dataset
 from .ai.providers.base import AnalysisProviderError
 from .ai.service import analyze_dataset
+from .insights import generate_insights
 from .models import AnalysisRecord, Dataset
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -185,3 +186,18 @@ class AnalyzeAPIView(APIView):
         )
         result["analysis_id"] = record.pk
         return Response(result)
+
+
+class InsightsAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JWTAuthentication, SessionAuthentication)
+
+    def get(self, request):
+        dataset_id = request.query_params.get("dataset_id")
+        if not dataset_id:
+            return Response({"detail": "dataset_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        dataset = get_object_or_404(Dataset, pk=dataset_id, owner=request.user)
+        try:
+            return Response(generate_insights(dataset))
+        except AnalysisProviderError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

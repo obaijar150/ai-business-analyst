@@ -1,0 +1,41 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f9fc"><title>Insights · Northstar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/css/styles.css' %}">
+</head>
+<body>
+  <main class="main" style="margin-left:0">
+    <div class="content">
+      <div class="welcome-row"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>Business Insights</h1><p class="subtitle">Automated KPIs, trends, anomalies, and recommendations.</p></div></div>
+      <section class="panel">
+        <label for="insights-dataset">Dataset</label>
+        <select id="insights-dataset" aria-label="Select dataset"><option value="">Loading datasets…</option></select>
+        <button class="primary-button" id="insights-load">Load insights</button>
+        <div id="insights-error" class="analyst-error" role="alert" hidden></div>
+      </section>
+      <section class="panel" id="kpi-section" hidden>
+        <h2>KPIs</h2><div id="kpi-grid" class="kpi-grid"></div>
+      </section>
+      <section class="panel" id="chart-section" hidden>
+        <h2>Charts</h2><div id="chart-grid"></div>
+      </section>
+      <section class="panel" id="trend-section" hidden>
+        <h2>Trends</h2><canvas id="trend-chart"></canvas>
+      </section>
+      <section class="panel" id="anomaly-section" hidden>
+        <h2>Anomalies</h2><ul id="anomaly-list"></ul>
+      </section>
+      <section class="panel" id="recommendation-section" hidden>
+        <h2>Recommendations</h2><ul id="recommendation-list"></ul>
+      </section>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="{% static 'dashboard/js/insights.js' %}"></script>
+</body>
+</html>
