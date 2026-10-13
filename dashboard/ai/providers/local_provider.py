@@ -25,6 +25,38 @@ def _is_numeric(dtype):
     return any(marker in dtype for marker in ("int", "float", "double", "decimal", "number"))
 
 
+def _is_date(dtype, name):
+    dtype = str(dtype).lower()
+    normalized_name = _normalize(name)
+    return (
+        "date" in dtype
+        or "time" in dtype
+        or "date" in normalized_name
+        or "time" in normalized_name
+        or normalized_name in {"month", "period"}
+    )
+
+
+def _preferred_numeric(question, numeric_columns):
+    normalized_question = _normalize(question)
+    preferred_names = []
+    if any(word in normalized_question for word in ("sales", "revenue", "income", "amount", "money", "value")):
+        preferred_names.extend(["revenue", "sales", "amount", "income", "value", "total"])
+    if any(word in normalized_question for word in ("profit",)):
+        preferred_names.extend(["profit"])
+    if any(word in normalized_question for word in ("quantity", "units", "sold", "count")):
+        preferred_names.extend(["quantity", "units", "count", "volume"])
+    if any(word in normalized_question for word in ("cost",)):
+        preferred_names.extend(["cost"])
+    if any(word in normalized_question for word in ("price",)):
+        preferred_names.extend(["price", "unit_price"])
+    for preferred in preferred_names:
+        for column in numeric_columns:
+            if preferred in _normalize(column["name"]):
+                return column["name"]
+    return None
+
+
 def _explicit_columns(question, columns):
     normalized_question = _normalize(question)
     mentioned = []
@@ -87,6 +119,10 @@ class LocalAnalysisProvider(AnalysisProvider):
         if ranking_intent and categorical_columns:
             group_by = _best_column(question, categorical_columns)
             mentioned_numeric = _explicit_columns(question, numeric_columns)
+            if not mentioned_numeric:
+                preferred = _preferred_numeric(question, numeric_columns)
+                if preferred:
+                    mentioned_numeric = [preferred]
             count_group = (
                 "count" in normalized_question
                 or "how many" in normalized_question
@@ -120,6 +156,34 @@ class LocalAnalysisProvider(AnalysisProvider):
                     "x": group_by,
                     "y": "Rows" if value_column is None else f"{aggregation.title()} of {value_column}",
                     "title": f"{measure_label} by {group_by}",
+                },
+            }
+
+        month_intent = any(phrase in normalized_question for phrase in ("month", "months", "monthly", "over time", "trend", "by period", "quarter")) or ("across" in normalized_question and "month" in normalized_question)
+        date_columns = [column for column in columns if _is_date(column["data_type"], column["name"])]
+        if month_intent and date_columns and numeric_columns:
+            group_by = date_columns[0]["name"]
+            mentioned_numeric = _explicit_columns(question, numeric_columns)
+            if mentioned_numeric:
+                value_column = mentioned_numeric[0]
+            else:
+                value_column = _preferred_numeric(question, numeric_columns)
+                if value_column is None:
+                    value_column = numeric_columns[0]["name"]
+            measure_label = f"Sum of {value_column}" if False else f"{value_column}"
+            return {
+                "operation": "top_groups",
+                "group_by": group_by,
+                "value_column": value_column,
+                "aggregation": "sum",
+                "order": "asc",
+                "limit": 12,
+                "time_granularity": "month",
+                "chart": {
+                    "type": "line",
+                    "x": group_by,
+                    "y": f"Sum of {value_column}",
+                    "title": f"{value_column} by month",
                 },
             }
 
@@ -172,7 +236,9 @@ class LocalAnalysisProvider(AnalysisProvider):
             if len(mentioned_numeric) >= 2:
                 value_column = mentioned_numeric
             else:
-                value_column = _best_column(question, numeric_columns, numeric=True)
+                value_column = _preferred_numeric(question, numeric_columns)
+                if value_column is None:
+                    value_column = _best_column(question, numeric_columns, numeric=True)
                 if value_column is None:
                     value_column = numeric_columns[0]["name"]
             chart = None

@@ -97,6 +97,9 @@ def _validate_plan(plan, frame):
     if not 1 <= limit <= 10:
         limit = 5
     order = "asc" if plan.get("order") == "asc" else "desc"
+    time_granularity = plan.get("time_granularity")
+    if time_granularity not in {None, "day", "month", "year"}:
+        time_granularity = None
     chart = plan.get("chart")
     valid_chart = None
     if isinstance(chart, dict):
@@ -127,6 +130,7 @@ def _validate_plan(plan, frame):
         "limit": limit,
         "order": order,
         "chart": valid_chart,
+        "time_granularity": time_granularity,
     }
 
 
@@ -145,26 +149,46 @@ def _execute_plan(plan, frame):
         group_column = plan["group_by"]
         value_column = plan["value_column"]
         aggregation = plan["aggregation"]
-        grouped = frame.groupby(group_column, dropna=False, sort=False)
+        time_granularity = plan.get("time_granularity")
+        group_field = group_column
+        working_frame = frame
+        if time_granularity == "month":
+            parsed_dates = pd.to_datetime(frame[group_column], errors="coerce")
+            working_frame = frame.assign(__time_period=parsed_dates.dt.strftime("%Y-%m"))
+            group_field = "__time_period"
+        grouped = working_frame.groupby(group_field, dropna=False, sort=False)
         values = grouped.size() if value_column is None else grouped[value_column].agg(aggregation)
-        ranked = values.sort_values(ascending=plan["order" ] == "asc", kind="stable").head(plan["limit"])
+        if time_granularity == "month":
+            ranked = values.sort_index(ascending=True, kind="stable").head(plan["limit"])
+        else:
+            ranked = values.sort_values(ascending=plan["order" ] == "asc", kind="stable").head(plan["limit"])
         value_label = "Rows" if value_column is None else f"{aggregation.title()} of {value_column}"
         rows = [[_json_safe(index), _json_safe(value)] for index, value in ranked.items()]
         direction = "lowest to highest" if plan["order"] == "asc" else "highest to lowest"
         measure = "row count" if value_column is None else f"{aggregation} of {value_column}"
         if rows:
             rank_word = "lowest" if plan["order"] == "asc" else "highest"
-            explanation = (
-                f"{_display_value(rows[0][0])} ranks {rank_word} for {measure}, "
-                f"with a calculated value of {_display_value(rows[0][1])}. "
-                f"I grouped all dataset rows by {group_column} and ranked the groups from {direction}."
-            )
+            grouped_label = "month" if time_granularity == "month" else group_column
+            if time_granularity == "month":
+                explanation = (
+                    f"I grouped all dataset rows by month and calculated {measure} for each period. "
+                    f"The first month in the result is {_display_value(rows[0][0])}, "
+                    f"with a calculated value of {_display_value(rows[0][1])}."
+                )
+            else:
+                explanation = (
+                    f"{_display_value(rows[0][0])} ranks {rank_word} for {measure}, "
+                    f"with a calculated value of {_display_value(rows[0][1])}. "
+                    f"I grouped all dataset rows by {grouped_label} and ranked the groups from {direction}."
+                )
         else:
             explanation = f"There are no rows to rank by {group_column}."
+        result_columns = [str(group_column), value_label]
+        columns_used = [str(group_column)] + ([str(value_column)] if value_column is not None else [])
         return {
-            "columns": [str(group_column), value_label],
+            "columns": result_columns,
             "rows": rows,
-            "columns_used": [str(group_column)] + ([str(value_column)] if value_column is not None else []),
+            "columns_used": columns_used,
             "explanation": explanation,
         }
 
