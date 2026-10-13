@@ -60,7 +60,7 @@ def _validate_plan(plan, frame):
     if operation not in OPERATIONS:
         raise AnalysisProviderError("The AI selected an unsupported analysis. Try asking for a summary, total, or ranking.")
     if operation == "unsupported":
-        return {"operation": operation}
+        return {"operation": operation, "chart": None}
 
     aggregation = plan.get("aggregation", "count")
     if aggregation not in AGGREGATIONS:
@@ -97,6 +97,28 @@ def _validate_plan(plan, frame):
     if not 1 <= limit <= 10:
         limit = 5
     order = "asc" if plan.get("order") == "asc" else "desc"
+    chart = plan.get("chart")
+    valid_chart = None
+    if isinstance(chart, dict):
+        chart_type = chart.get("type")
+        title = chart.get("title")
+        x_value = chart.get("x")
+        y_value = chart.get("y")
+        if (
+            chart_type in {"bar", "line", "pie", "scatter"}
+            and isinstance(title, str)
+            and 1 <= len(title) <= 200
+            and isinstance(x_value, str)
+            and 1 <= len(x_value) <= 200
+            and isinstance(y_value, str)
+            and 1 <= len(y_value) <= 200
+        ):
+            valid_chart = {
+                "type": chart_type,
+                "x": x_value,
+                "y": y_value,
+                "title": title,
+            }
     return {
         "operation": operation,
         "aggregation": aggregation,
@@ -104,6 +126,7 @@ def _validate_plan(plan, frame):
         "value_column": value_column,
         "limit": limit,
         "order": order,
+        "chart": valid_chart,
     }
 
 
@@ -267,6 +290,7 @@ def analyze_dataset(dataset, question, provider=None):
         explanation = "I couldn't map that question to a supported dataset calculation yet. Try asking for a total, average, descriptive statistics, row count, or a ranking by category."
         analysis = {"operation": "unsupported", "columns_used": []}
         result = {"columns": [], "rows": []}
+        chart = None
         evidence = {
             "dataset": dataset.name,
             "period": "No period filter was applied.",
@@ -281,10 +305,12 @@ def analyze_dataset(dataset, question, provider=None):
         explanation = executed.pop("explanation")
         columns_used = executed.pop("columns_used")
         result = {"columns": executed["columns"], "rows": executed["rows"]}
+        chart = valid_plan.get("chart")
         analysis = {
             "operation": valid_plan["operation"],
             "columns_used": columns_used,
             "aggregation": valid_plan.get("aggregation"),
+            "chart": chart,
         }
         evidence = _build_evidence(dataset, frame, valid_plan, result)
 
@@ -296,4 +322,5 @@ def analyze_dataset(dataset, question, provider=None):
         "analysis": analysis,
         "result": result,
         "evidence": evidence,
+        "chart": chart,
     }

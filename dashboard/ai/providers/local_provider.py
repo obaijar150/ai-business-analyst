@@ -107,6 +107,7 @@ class LocalAnalysisProvider(AnalysisProvider):
                 aggregation = "mean"
             else:
                 aggregation = "sum"
+            measure_label = "Rows" if value_column is None else f"{aggregation.title()} of {value_column}"
             return {
                 "operation": "top_groups",
                 "group_by": group_by,
@@ -114,6 +115,12 @@ class LocalAnalysisProvider(AnalysisProvider):
                 "aggregation": aggregation,
                 "order": "asc" if bottom_intent else "desc",
                 "limit": limit,
+                "chart": {
+                    "type": "bar",
+                    "x": group_by,
+                    "y": "Rows" if value_column is None else f"{aggregation.title()} of {value_column}",
+                    "title": f"{measure_label} by {group_by}",
+                },
             }
 
         if describe_intent and numeric_columns:
@@ -168,6 +175,15 @@ class LocalAnalysisProvider(AnalysisProvider):
                 value_column = _best_column(question, numeric_columns, numeric=True)
                 if value_column is None:
                     value_column = numeric_columns[0]["name"]
+            chart = None
+            columns_for_chart = value_column if isinstance(value_column, list) else [value_column]
+            if len(columns_for_chart) >= 2:
+                chart = {
+                    "type": "bar",
+                    "x": "Column",
+                    "y": "Result",
+                    "title": f"{aggregation.title()} by column",
+                }
             return {
                 "operation": "aggregate",
                 "group_by": None,
@@ -175,6 +191,7 @@ class LocalAnalysisProvider(AnalysisProvider):
                 "aggregation": aggregation,
                 "order": "desc",
                 "limit": limit,
+                "chart": chart,
             }
 
         if count_intent:

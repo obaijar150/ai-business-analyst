@@ -326,3 +326,35 @@ def test_factory_creates_local_provider_by_default():
 
     with override_settings(AI_PROVIDER="local"):
         assert type(get_analysis_provider()).__name__ == "LocalAnalysisProvider"
+
+
+def test_local_provider_returns_chart_for_ranking():
+    from dashboard.ai.providers.local_provider import LocalAnalysisProvider
+
+    provider = LocalAnalysisProvider()
+    schema = [
+        {"name": "product", "data_type": "object"},
+        {"name": "units", "data_type": "int64"},
+    ]
+    plan = provider.create_plan("What are the best selling products?", schema)
+    assert plan["chart"]["type"] == "bar"
+    assert plan["chart"]["x"] == "product"
+
+
+@pytest.mark.django_db
+def test_analyze_api_returns_chart_for_ranking():
+    from dashboard.ai.providers.local_provider import LocalAnalysisProvider
+
+    user = User.objects.create_user(username="chart-user", password="Strong-pass-209!")
+    dataset = create_dataset(user)
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("dashboard.ai.service.get_analysis_provider", lambda: LocalAnalysisProvider())
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.post(reverse("api_analyze"), {
+        "dataset_id": dataset.pk,
+        "question": "What are the best selling products?",
+    }, format="json")
+    monkeypatch.undo()
+    assert response.status_code == 200
+    assert response.data["chart"]["type"] == "bar"

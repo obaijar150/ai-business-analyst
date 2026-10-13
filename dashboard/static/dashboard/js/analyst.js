@@ -88,6 +88,44 @@
     parent.append(section);
   }
 
+  function addChart(parent, chart, result) {
+    if (!chart || !result || !Array.isArray(result.columns) || !Array.isArray(result.rows)) return;
+    const xi = result.columns.indexOf(chart.x);
+    const yi = result.columns.indexOf(chart.y);
+    if (xi < 0 || yi < 0) return;
+    const wrap = el('div', 'chart-wrap');
+    const canvas = document.createElement('canvas');
+    canvas.className = 'analyst-chart';
+    wrap.append(canvas);
+    parent.append(wrap);
+
+    const labels = result.rows.map((row) => row[xi]);
+    const values = result.rows.map((row) => {
+      const value = row[yi];
+      return typeof value === 'number' ? value : Number(value);
+    });
+
+    const config = {
+      type: chart.type,
+      data: {
+        labels,
+        datasets: [{ label: chart.y, data: values, backgroundColor: 'rgba(84, 94, 234, 0.55)', borderColor: 'rgba(84, 94, 234, 1)', borderWidth: 1 }],
+      },
+      options: {
+        responsive: true,
+        plugins: { title: { display: true, text: chart.title }, legend: { display: chart.type !== 'pie' } },
+      },
+    };
+
+    if (chart.type === 'scatter') {
+      config.data = {
+        datasets: [{ label: chart.y, data: result.rows.map((row) => ({ x: Number(row[xi]), y: Number(row[yi]) })) }],
+      };
+    }
+
+    try { new Chart(canvas, config); } catch (error) { wrap.remove(); }
+  }
+
   async function loadDatasets() {
     const response = await fetch('/api/datasets/', {credentials: 'same-origin'});
     if (!response.ok) throw new Error('Could not load your datasets. Refresh the page and try again.');
@@ -145,6 +183,7 @@
       const answer = addMessage('assistant', payload.explanation || payload.answer || 'Analysis complete.');
       addResultTable(answer, payload.result);
       addEvidence(answer, payload.evidence);
+      addChart(answer, payload.chart, payload.result);
     } catch (error) {
       loading.remove();
       errorBox.hidden = false;
