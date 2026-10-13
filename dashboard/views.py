@@ -30,6 +30,11 @@ def insights_page(request):
     return render(request, "dashboard/insights.html", {})
 
 
+@login_required
+def reports_page(request):
+    return render(request, "dashboard/reports.html", {})
+
+
 def register(request):
     if request.user.is_authenticated:
         return redirect("dashboard")

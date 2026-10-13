@@ -12,7 +12,8 @@ from .dataset_processing import inspect_dataset
 from .ai.providers.base import AnalysisProviderError
 from .ai.service import analyze_dataset
 from .insights import generate_insights
-from .models import AnalysisRecord, Dataset
+from .models import AnalysisRecord, Dataset, Report
+from .reports import create_report
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -218,3 +219,47 @@ class AnalysisListAPIView(APIView):
             }
             for record in records
         ])
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = ("id", "title", "dataset", "executive_summary", "kpis", "trends", "anomalies",
+                  "findings", "recommendations", "evidence", "charts", "created_at")
+        read_only_fields = fields
+
+
+class ReportListCreateAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JWTAuthentication, SessionAuthentication)
+
+    def get(self, request):
+        reports = Report.objects.filter(owner=request.user)
+        return Response(ReportSerializer(reports, many=True).data)
+
+    def post(self, request):
+        dataset_id = request.data.get("dataset_id")
+        if not dataset_id:
+            return Response({"detail": "dataset_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        dataset = get_object_or_404(Dataset, pk=dataset_id, owner=request.user)
+        title = request.data.get("title")
+        try:
+            report = create_report(request.user, dataset, title=title)
+        except AnalysisProviderError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(ReportSerializer(report).data, status=status.HTTP_201_CREATED)
+
+
+class ReportDetailAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JWTAuthentication, SessionAuthentication)
+
+    def get_object(self, request, pk):
+        return get_object_or_404(Report, pk=pk, owner=request.user)
+
+    def get(self, request, pk):
+        return Response(ReportSerializer(self.get_object(request, pk)).data)
+
+    def delete(self, request, pk):
+        self.get_object(request, pk).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

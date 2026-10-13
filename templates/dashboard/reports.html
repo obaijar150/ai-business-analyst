@@ -1,0 +1,61 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f9fc"><title>Reports · Northstar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/css/styles.css' %}">
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">n</span><span>northstar</span></a>
+    <div class="workspace-label">WORKSPACE</div>
+    <button class="workspace-switch"><span class="workspace-avatar">A</span><span class="workspace-copy"><b>Acme Studio</b><small>Free workspace</small></span><span class="chevron">⌄</span></button>
+    <nav class="navigation" aria-label="Main navigation">
+      <a class="nav-item" href="{% url 'dashboard' %}"><span class="nav-icon">◫</span>Overview</a>
+      <a class="nav-item" href="{% url 'dashboard' %}#projects"><span class="nav-icon">▤</span>Projects</a>
+      <a class="nav-item active" href="{% url 'reports' %}"><span class="nav-icon">◷</span>Reports</a>
+      <div class="nav-divider"></div>
+      <div class="workspace-label">YOUR WORKSPACE</div>
+      <a class="nav-item" href="{% url 'insights' %}"><span class="nav-icon">⌁</span>Insights</a>
+      <a class="nav-item" href="{% url 'datasets' %}"><span class="nav-icon">⊙</span>Datasets</a>
+      <a class="nav-item" href="{% url 'analyst' %}"><span class="nav-icon">✳</span>AI Analyst</a>
+      <a class="nav-item" href="{% url 'dashboard' %}#team"><span class="nav-icon">♧</span>Team</a>
+    </nav>
+    <div class="sidebar-bottom"><a class="nav-item" href="#help"><span class="nav-icon">?</span>Help &amp; support</a><a class="nav-item" href="#settings"><span class="nav-icon">⚙</span>Settings</a><div class="profile"><div class="profile-avatar">{{ request.user.username|slice:":2"|upper }}</div><div class="profile-copy"><b>{{ request.user.get_full_name|default:request.user.username }}</b><small>{{ request.user.email|default:request.user.username }}</small></div></div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">☰</button><div class="breadcrumbs">Workspace <span>/</span> <b>Reports</b></div><div class="top-actions"><form action="{% url 'logout' %}" method="post" class="header-logout-form">{% csrf_token %}<button class="logout-button" type="submit">Log out</button></form><div class="top-avatar">{{ request.user.username|slice:":2"|upper }}</div></div></header>
+    <div class="content analyst-content">
+      <div class="welcome-row"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>Reports <span class="wave">◷</span></h1><p class="subtitle">Business reports generated from real dataset analyses.</p></div></div>
+      <section class="panel analyst-panel">
+        <div class="analyst-toolbar">
+          <label for="report-dataset">Generate report from dataset</label>
+          <select id="report-dataset" aria-label="Select a dataset"><option value="">Loading datasets…</option></select>
+          <input id="report-title" type="text" placeholder="Report title (optional)" style="min-width:180px;flex:1;border:1px solid var(--line);border-radius:6px;padding:8px 10px">
+          <button class="primary-button" id="report-create">Create report</button>
+        </div>
+        <div id="report-error" class="analyst-error" role="alert" hidden></div>
+      </section>
+      <section class="panel">
+        <h2>Saved reports</h2>
+        <ul id="report-list" class="activity-list"></ul>
+      </section>
+      <section class="panel" id="report-detail" hidden>
+        <h2 id="report-detail-title"></h2>
+        <p id="report-executive"></p>
+        <h3>KPIs</h3><ul id="report-kpis"></ul>
+        <h3>Findings</h3><ul id="report-findings"></ul>
+        <h3>Recommendations</h3><ul id="report-recommendations"></ul>
+        <h3>Anomalies</h3><ul id="report-anomalies"></ul>
+        <h3>Evidence</h3><pre id="report-evidence"></pre>
+      </section>
+    </div>
+  </main>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+  <script src="{% static 'dashboard/js/app.js' %}"></script>
+  <script src="{% static 'dashboard/js/reports.js' %}"></script>
+</body>
+</html>

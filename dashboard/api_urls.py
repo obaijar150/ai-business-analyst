@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .api_views import AnalyzeAPIView, AnalysisListAPIView, CurrentUserView, DatasetDetailAPIView, DatasetListCreateAPIView, InsightsAPIView, LogoutAPIView, RegisterAPIView
+from .api_views import AnalyzeAPIView, AnalysisListAPIView, CurrentUserView, DatasetDetailAPIView, DatasetListCreateAPIView, InsightsAPIView, LogoutAPIView, RegisterAPIView, ReportDetailAPIView, ReportListCreateAPIView
 from .views import health
 
 urlpatterns = [
@@ -16,4 +16,6 @@ urlpatterns = [
     path("analyze/", AnalyzeAPIView.as_view(), name="api_analyze"),
     path("insights/", InsightsAPIView.as_view(), name="api_insights"),
     path("analyses/", AnalysisListAPIView.as_view(), name="api_analyses"),
+    path("reports/", ReportListCreateAPIView.as_view(), name="api_reports"),
+    path("reports/<int:pk>/", ReportDetailAPIView.as_view(), name="api_report_detail"),
 ]

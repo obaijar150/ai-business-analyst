@@ -40,3 +40,24 @@ class AnalysisRecord(models.Model):
 
     def __str__(self):
         return f"Analysis of {self.dataset.name} by {self.owner}"
+
+
+class Report(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reports")
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="reports")
+    title = models.CharField(max_length=255)
+    executive_summary = models.TextField()
+    kpis = models.JSONField(default=list)
+    trends = models.JSONField(default=list)
+    anomalies = models.JSONField(default=list)
+    findings = models.JSONField(default=list)
+    recommendations = models.JSONField(default=list)
+    evidence = models.JSONField(default=dict)
+    charts = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"Report {self.title} for {self.dataset.name}"
