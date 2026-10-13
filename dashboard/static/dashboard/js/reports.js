@@ -84,6 +84,21 @@
       item.append(el('div', String(value)));
       evidenceBox.append(item);
     });
+
+    const chartBox = document.getElementById('report-charts');
+    chartBox.replaceChildren();
+    (report.charts || []).forEach((chart) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'chart-wrap';
+      const canvas = document.createElement('canvas');
+      wrap.append(canvas);
+      chartBox.append(wrap);
+      if (chart.labels && chart.values) {
+        new Chart(canvas, { type: chart.type === 'line' ? 'line' : 'bar', data: { labels: chart.labels, datasets: [{ label: chart.title || '', data: chart.values }] }, options: { plugins: { title: { display: true, text: chart.title || '' } } } });
+      } else if (chart.data) {
+        new Chart(canvas, { type: chart.type === 'pie' ? 'pie' : 'bar', data: { labels: chart.data.map((row) => row.name), datasets: [{ label: chart.y || '', data: chart.data.map((row) => row.value) }] }, options: { plugins: { title: { display: true, text: chart.title || '' } } } });
+      }
+    });
   }
 
   async function deleteReport(id) {
