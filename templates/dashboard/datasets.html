@@ -1,0 +1,57 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f9fc"><title>Datasets · Northstar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/css/styles.css' %}">
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">n</span><span>northstar</span></a>
+    <div class="workspace-label">WORKSPACE</div>
+    <button class="workspace-switch"><span class="workspace-avatar">A</span><span class="workspace-copy"><b>Acme Studio</b><small>Free workspace</small></span><span class="chevron">⌄</span></button>
+    <nav class="navigation" aria-label="Main navigation">
+      <a class="nav-item" href="{% url 'dashboard' %}"><span class="nav-icon">◫</span>Overview</a>
+      <a class="nav-item" href="{% url 'dashboard' %}#projects"><span class="nav-icon">▤</span>Projects</a>
+      <a class="nav-item" href="{% url 'dashboard' %}#reports"><span class="nav-icon">◷</span>Reports</a>
+      <div class="nav-divider"></div><div class="workspace-label">YOUR WORKSPACE</div>
+      <a class="nav-item" href="{% url 'dashboard' %}#insights"><span class="nav-icon">⌁</span>Insights</a>
+      <a class="nav-item active" href="{% url 'datasets' %}"><span class="nav-icon">⊙</span>Datasets</a>
+      <a class="nav-item" href="{% url 'analyst' %}"><span class="nav-icon">✳</span>AI Analyst</a>
+      <a class="nav-item" href="{% url 'dashboard' %}#team"><span class="nav-icon">♧</span>Team</a>
+    </nav>
+    <div class="sidebar-bottom"><a class="nav-item" href="#help"><span class="nav-icon">?</span>Help &amp; support</a><a class="nav-item" href="#settings"><span class="nav-icon">⚙</span>Settings</a><div class="profile"><div class="profile-avatar">{{ request.user.username|slice:":2"|upper }}</div><div class="profile-copy"><b>{{ request.user.get_full_name|default:request.user.username }}</b><small>{{ request.user.email|default:request.user.username }}</small></div></div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">☰</button><div class="breadcrumbs">Workspace <span>/</span> <b>Datasets</b></div><div class="top-actions"><form action="{% url 'logout' %}" method="post" class="header-logout-form">{% csrf_token %}<button class="logout-button" type="submit">Log out</button></form><div class="top-avatar">{{ request.user.username|slice:":2"|upper }}</div></div></header>
+    <div class="content datasets-content">
+      <div class="welcome-row"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>Datasets</h1><p class="subtitle">Upload and manage the data behind your next insight.</p></div><button class="primary-button" id="browse-button" type="button"><span>＋</span> Upload dataset</button></div>
+      <div class="dataset-stats" aria-label="Selected dataset statistics">
+        <article class="metric-card"><div class="metric-top"><span>Rows</span><span class="metric-symbol purple">▤</span></div><div class="metric-value" id="stat-rows">—</div><div class="metric-note">Records in this dataset</div></article>
+        <article class="metric-card"><div class="metric-top"><span>Columns</span><span class="metric-symbol blue">▥</span></div><div class="metric-value" id="stat-columns">—</div><div class="metric-note">Detected fields</div></article>
+        <article class="metric-card"><div class="metric-top"><span>Missing values</span><span class="metric-symbol green">⌁</span></div><div class="metric-value" id="stat-missing">—</div><div class="metric-note">Empty cells detected</div></article>
+      </div>
+      <section class="panel upload-panel">
+        <form id="upload-form" enctype="multipart/form-data">{% csrf_token %}
+          <input id="dataset-file" name="file" type="file" accept=".csv,.xlsx,.xls" hidden>
+          <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Choose or drop a CSV or Excel dataset"><span class="upload-icon">↑</span><div><b>Drop your dataset here</b><p>or <button type="button" class="inline-upload" id="inline-browse">browse files</button> · CSV or Excel, up to 25 MB</p></div></div>
+          <div class="upload-controls"><label for="dataset-name">Dataset name <span>(optional)</span></label><input id="dataset-name" name="name" maxlength="255" placeholder="Use the file name by default"><button class="primary-button" id="submit-upload" type="submit">Upload dataset</button></div>
+        </form>
+        <div id="upload-message" class="dataset-message" role="status" aria-live="polite"></div>
+      </section>
+      <div class="dataset-layout">
+        <section class="panel dataset-list-panel"><div class="panel-heading"><div><h2>Your datasets</h2><p id="dataset-count">Loading datasets…</p></div></div><div id="dataset-list" class="dataset-list" aria-live="polite"></div></section>
+        <section class="panel dataset-detail-panel"><div class="panel-heading"><div><h2 id="detail-title">Dataset details</h2><p id="detail-caption">Choose a dataset to see its columns and preview.</p></div><button type="button" id="delete-dataset" class="delete-button" hidden>Delete</button></div>
+          <div class="detail-body" id="detail-body"><div class="empty-details">Select a dataset from your list, or upload a CSV or Excel file to get started.</div></div>
+        </section>
+      </div>
+      <footer>© 2026 Northstar <span>·</span> Your workspace, at a glance.</footer>
+    </div>
+  </main>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+  <script src="{% static 'dashboard/js/app.js' %}"></script><script src="{% static 'dashboard/js/datasets.js' %}"></script>
+</body>
+</html>

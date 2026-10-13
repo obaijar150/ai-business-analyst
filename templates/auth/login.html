@@ -1,0 +1,23 @@
+{% extends "auth/base.html" %}
+{% block title %}Log in{% endblock %}
+{% block heading %}Welcome back{% endblock %}
+{% block description %}Log in to continue to your workspace.{% endblock %}
+{% block content %}
+  <form method="post" class="auth-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-field">
+      <label for="{{ form.username.id_for_label }}">Username</label>
+      {{ form.username }}
+      {% for error in form.username.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      <label for="{{ form.password.id_for_label }}">Password</label>
+      {{ form.password }}
+      {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="auth-submit" type="submit">Log in</button>
+  </form>
+  <p class="auth-switch">New to Northstar? <a href="{% url 'register' %}">Create an account</a></p>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f9fc">
+  <title>{% block title %}Account{% endblock %} · Northstar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/css/auth.css' %}">
+</head>
+<body>
+  <main class="auth-shell">
+    <a class="auth-brand" href="{% url 'login' %}" aria-label="Northstar home">
+      <span class="brand-mark">n</span><span>northstar</span>
+    </a>
+    <section class="auth-card">
+      <div class="auth-heading">
+        <span class="eyebrow">YOUR WORKSPACE, AT A GLANCE</span>
+        <h1>{% block heading %}{% endblock %}</h1>
+        <p>{% block description %}{% endblock %}</p>
+      </div>
+      {% if messages %}
+        <div class="message-list" role="status">
+          {% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}
+        </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </section>
+    <p class="auth-footer">Northstar · Your workspace, at a glance.</p>
+  </main>
+</body>
+</html>
