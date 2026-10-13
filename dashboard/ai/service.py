@@ -76,12 +76,18 @@ def _validate_plan(plan, frame):
         if value_column is None and aggregation != "count":
             raise AnalysisProviderError("Counting rows requires a count calculation. Please rephrase your question.")
     elif operation in {"aggregate", "describe"}:
-        if value_column not in frame.columns:
+        if isinstance(value_column, list):
+            if not value_column or any(column not in frame.columns for column in value_column):
+                raise AnalysisProviderError("I couldn't identify a valid value column. Please name the column to analyze.")
+        elif value_column not in frame.columns:
             raise AnalysisProviderError("I couldn't identify a valid value column. Please name the column to analyze.")
-    if operation == "describe" and not pd.api.types.is_numeric_dtype(frame[value_column]):
+    if operation == "describe" and not isinstance(value_column, list) and not pd.api.types.is_numeric_dtype(frame[value_column]):
         raise AnalysisProviderError(f"The selected column, {value_column}, is not numeric, so I can't calculate its statistics.")
     if operation in {"aggregate", "top_groups"} and value_column is not None:
-        if aggregation in NUMERIC_AGGREGATIONS and not pd.api.types.is_numeric_dtype(frame[value_column]):
+        if isinstance(value_column, list):
+            if aggregation in NUMERIC_AGGREGATIONS and any(not pd.api.types.is_numeric_dtype(frame[column]) for column in value_column):
+                raise AnalysisProviderError("One of the selected columns is not numeric for this calculation.")
+        elif aggregation in NUMERIC_AGGREGATIONS and not pd.api.types.is_numeric_dtype(frame[value_column]):
             raise AnalysisProviderError(f"The selected column, {value_column}, is not numeric for a {aggregation} calculation.")
 
     try:
@@ -142,14 +148,29 @@ def _execute_plan(plan, frame):
     value_column = plan["value_column"]
     aggregation = plan["aggregation"]
     if operation == "aggregate":
-        series = frame[value_column]
-        value = int(series.count()) if aggregation == "count" else series.agg(aggregation)
-        exact_value = _display_value(value)
+        value_columns = value_column if isinstance(value_column, list) else [value_column]
+        rows = []
+        columns_used = []
+        values = {}
+        for column in value_columns:
+            series = frame[column]
+            value = int(series.count()) if aggregation == "count" else series.agg(aggregation)
+            values[str(column)] = value
+            rows.append([str(column), aggregation.title(), _json_safe(value)])
+            columns_used.append(str(column))
+        if len(value_columns) == 1:
+            exact_value = _display_value(values[str(value_columns[0])])
+            explanation = f"The {aggregation} of {value_columns[0]} is {exact_value}, calculated from the dataset values."
+        else:
+            explanation = "; ".join(
+                f"the {aggregation} of {column} is {_display_value(values[str(column)])}"
+                for column in value_columns
+            ).capitalize() + ", calculated from the dataset values."
         return {
             "columns": ["Column", "Calculation", "Result"],
-            "rows": [[str(value_column), aggregation.title(), _json_safe(value)]],
-            "columns_used": [str(value_column)],
-            "explanation": f"The {aggregation} of {value_column} is {exact_value}, calculated from the dataset values.",
+            "rows": rows,
+            "columns_used": columns_used,
+            "explanation": explanation,
         }
 
     series = frame[value_column].dropna()
@@ -175,6 +196,67 @@ def _execute_plan(plan, frame):
     }
 
 
+def _build_evidence(dataset, frame, plan, result):
+    """Describe only the source rows and calculations that produced this result."""
+    operation = plan["operation"]
+    rows_examined = int(len(frame))
+    facts = [f"Dataset: {dataset.name}", f"Rows examined: {rows_examined}"]
+
+    if operation == "count_rows":
+        formula = "count(dataset rows)"
+        values_used = rows_examined
+        interpretation = "This is the number of records present in the uploaded dataset."
+    elif operation == "top_groups":
+        group_by = plan["group_by"]
+        value_column = plan["value_column"]
+        aggregation = plan["aggregation"]
+        if value_column is None:
+            formula = f"count(rows) grouped by {group_by}"
+            values_used = rows_examined
+            measure = "row count"
+        else:
+            values_used = int(frame[value_column].count())
+            formula = f"{aggregation}({value_column}) grouped by {group_by}"
+            measure = f"{aggregation} of {value_column}"
+        if result["rows"]:
+            ranked_value = result["rows"][0][0]
+            direction = "lowest" if plan["order"] == "asc" else "highest"
+            interpretation = (
+                f"Within this dataset, {_display_value(ranked_value)} ranks {direction} by {measure}. "
+                "This describes the calculated ranking and does not establish its cause."
+            )
+        else:
+            interpretation = f"No groups were available to rank by {group_by}."
+    elif operation == "aggregate":
+        value_column = plan["value_column"]
+        aggregation = plan["aggregation"]
+        value_columns = value_column if isinstance(value_column, list) else [value_column]
+        values_used = int(frame[value_columns[0]].count())
+        formula = ", ".join(f"{aggregation}({column})" for column in value_columns) + " over non-missing values"
+        interpretation = (
+            f"This value summarizes {value_column} using {aggregation}; "
+            "it does not by itself establish a trend or cause."
+        )
+    else:
+        value_column = plan["value_column"]
+        values_used = int(frame[value_column].count())
+        formula = f"count, mean, median, standard deviation, minimum, and maximum of {value_column}"
+        interpretation = (
+            f"These statistics describe the non-missing numeric values in {value_column}; "
+            "they do not explain causes or predict future values."
+        )
+
+    return {
+        "dataset": dataset.name,
+        "period": "All dataset rows; no period filter was applied.",
+        "rows_examined": rows_examined,
+        "fact": facts,
+        "calculation": [f"Formula: {formula}", f"Non-missing values used: {values_used}"],
+        "interpretation": [interpretation],
+        "recommendation": ["No recommendation was generated."],
+    }
+
+
 def analyze_dataset(dataset, question, provider=None):
     frame = _read_dataset(dataset)
     schema = [{"name": str(name), "data_type": str(frame[name].dtype)} for name in frame.columns]
@@ -182,23 +264,36 @@ def analyze_dataset(dataset, question, provider=None):
     plan = ai_provider.create_plan(question=question, schema=schema)
     valid_plan = _validate_plan(plan, frame)
     if valid_plan["operation"] == "unsupported":
-        return {
-            "dataset": {"id": dataset.pk, "name": dataset.name},
-            "question": question,
-            "answer": "I couldn't map that question to a supported dataset calculation yet. Try asking for a total, average, descriptive statistics, row count, or a ranking by category.",
-            "analysis": {"operation": "unsupported", "columns_used": []},
-            "result": {"columns": [], "rows": []},
+        explanation = "I couldn't map that question to a supported dataset calculation yet. Try asking for a total, average, descriptive statistics, row count, or a ranking by category."
+        analysis = {"operation": "unsupported", "columns_used": []}
+        result = {"columns": [], "rows": []}
+        evidence = {
+            "dataset": dataset.name,
+            "period": "No period filter was applied.",
+            "rows_examined": None,
+            "fact": ["No dataset calculation was performed."],
+            "calculation": ["No supported calculation was selected."],
+            "interpretation": ["The question could not be mapped to a supported calculation."],
+            "recommendation": ["No recommendation was generated."],
         }
+    else:
+        executed = _execute_plan(valid_plan, frame)
+        explanation = executed.pop("explanation")
+        columns_used = executed.pop("columns_used")
+        result = {"columns": executed["columns"], "rows": executed["rows"]}
+        analysis = {
+            "operation": valid_plan["operation"],
+            "columns_used": columns_used,
+            "aggregation": valid_plan.get("aggregation"),
+        }
+        evidence = _build_evidence(dataset, frame, valid_plan, result)
 
-    executed = _execute_plan(valid_plan, frame)
     return {
         "dataset": {"id": dataset.pk, "name": dataset.name},
         "question": question,
-        "answer": executed.pop("explanation"),
-        "analysis": {
-            "operation": valid_plan["operation"],
-            "columns_used": executed.pop("columns_used"),
-            "aggregation": valid_plan.get("aggregation"),
-        },
-        "result": executed,
+        "answer": explanation,
+        "explanation": explanation,
+        "analysis": analysis,
+        "result": result,
+        "evidence": evidence,
     }

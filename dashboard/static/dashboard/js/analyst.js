@@ -56,6 +56,38 @@
     parent.append(section);
   }
 
+  function addEvidence(parent, evidence) {
+    if (!evidence) return;
+    const section = el('section', 'answer-evidence');
+    section.setAttribute('aria-label', 'Evidence for this answer');
+    section.append(el('h3', '', 'Evidence'));
+
+    const source = el('p', 'evidence-source');
+    source.append(el('b', '', 'Dataset: '), document.createTextNode(evidence.dataset || 'Selected dataset'));
+    section.append(source);
+    const period = el('p', 'evidence-source');
+    period.append(el('b', '', 'Period: '), document.createTextNode(evidence.period || 'All dataset rows; no period filter was applied.'));
+    section.append(period);
+
+    [
+      ['Fact', evidence.fact],
+      ['Calculation', evidence.calculation],
+      ['Interpretation', evidence.interpretation],
+      ['Recommendation', evidence.recommendation],
+    ].forEach(([label, entries]) => {
+      const group = el('div', 'evidence-group');
+      group.append(el('h4', '', label));
+      const list = document.createElement('ul');
+      (Array.isArray(entries) ? entries : entries ? [entries] : []).forEach((entry) => {
+        list.append(el('li', '', String(entry)));
+      });
+      if (!list.childElementCount) list.append(el('li', '', 'None provided.'));
+      group.append(list);
+      section.append(group);
+    });
+    parent.append(section);
+  }
+
   async function loadDatasets() {
     const response = await fetch('/api/datasets/', {credentials: 'same-origin'});
     if (!response.ok) throw new Error('Could not load your datasets. Refresh the page and try again.');
@@ -110,8 +142,9 @@
         addMessage('assistant error', errorBox.textContent);
         return;
       }
-      const answer = addMessage('assistant', payload.answer || 'Analysis complete.');
+      const answer = addMessage('assistant', payload.explanation || payload.answer || 'Analysis complete.');
       addResultTable(answer, payload.result);
+      addEvidence(answer, payload.evidence);
     } catch (error) {
       loading.remove();
       errorBox.hidden = false;

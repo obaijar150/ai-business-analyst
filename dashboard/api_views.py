@@ -11,7 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .dataset_processing import inspect_dataset
 from .ai.providers.base import AnalysisProviderError
 from .ai.service import analyze_dataset
-from .models import Dataset
+from .models import AnalysisRecord, Dataset
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -174,4 +174,14 @@ class AnalyzeAPIView(APIView):
             result = analyze_dataset(dataset, serializer.validated_data["question"])
         except AnalysisProviderError as error:
             return Response({"detail": str(error)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        record = AnalysisRecord.objects.create(
+            owner=request.user,
+            dataset=dataset,
+            question=result["question"],
+            analysis=result["analysis"],
+            result=result["result"],
+            explanation=result["explanation"],
+            evidence=result["evidence"],
+        )
+        result["analysis_id"] = record.pk
         return Response(result)

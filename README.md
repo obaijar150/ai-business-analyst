@@ -36,7 +36,7 @@ Upload and manage CSV or Excel datasets at `/datasets/`. Dataset APIs are authen
 - `GET /api/datasets/<id>/` returns dataset metadata, statistics, and a preview.
 - `DELETE /api/datasets/<id>/` removes a dataset and its stored file.
 
-Ask questions at `/analyst/` or call `POST /api/analyze/` with `dataset_id` and `question`. Create an API key in [Google AI Studio](https://aistudio.google.com/api-keys) while using a Free Tier project, then set `GEMINI_API_KEY` in `.env`. Do not link billing if you want to keep the account on the free tier. `GEMINI_MODEL` defaults to `gemini-3.5-flash-lite`. The AI provider only selects columns and an allowed operation; Pandas computes the returned numerical results from the stored dataset. Free tier requests are subject to Google's model-specific usage limits.
+Ask questions at `/analyst/` or call `POST /api/analyze/` with `dataset_id` and `question`. By default, Northstar uses a built-in local analyst (`AI_PROVIDER=local`) that maps common questions to supported Pandas calculations without an API key. Optional LLM providers can be enabled by setting `AI_PROVIDER=gemini` with `GEMINI_API_KEY`, or `AI_PROVIDER=openai` with `OPENAI_API_KEY`. In every case the provider only selects columns and an allowed operation; Pandas computes the returned numerical results from the stored dataset.
 
 ## Run locally
 

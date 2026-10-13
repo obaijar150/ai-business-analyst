@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from dashboard.ai.providers.base import AnalysisProviderError
 from dashboard.ai.providers.gemini_provider import GeminiAnalysisProvider
 from dashboard.ai.providers.openai_provider import OpenAIAnalysisProvider
-from dashboard.models import Dataset
+from dashboard.models import AnalysisRecord, Dataset
 
 
 User = get_user_model()
@@ -67,7 +67,21 @@ def test_analyze_api_uses_llm_plan_and_returns_computed_group_totals(monkeypatch
     assert response.data["analysis"]["columns_used"] == ["product", "units"]
     assert response.data["result"]["rows"] == [["Widget", 5], ["Gadget", 4]]
     assert "calculated value of 5" in response.data["answer"]
+    assert response.data["explanation"] == response.data["answer"]
+    assert response.data["evidence"]["dataset"] == "Product sales"
+    assert response.data["evidence"]["period"] == "All dataset rows; no period filter was applied."
+    assert "Formula: sum(units) grouped by product" in response.data["evidence"]["calculation"]
+    assert "Widget" in response.data["evidence"]["interpretation"][0]
+    assert response.data["evidence"]["recommendation"] == ["No recommendation was generated."]
     assert [item["name"] for item in provider.seen_schema] == ["product", "units", "revenue"]
+    record = AnalysisRecord.objects.get(pk=response.data["analysis_id"])
+    assert record.owner == user
+    assert record.dataset == dataset
+    assert record.question == "What are the best selling products?"
+    assert record.analysis == response.data["analysis"]
+    assert record.result == response.data["result"]
+    assert record.evidence == response.data["evidence"]
+    assert record.explanation == response.data["explanation"]
 
 
 @pytest.mark.django_db
@@ -85,6 +99,7 @@ def test_analyze_api_computes_aggregate_and_does_not_accept_unknown_columns(monk
     }, format="json")
     assert response.status_code == 200
     assert response.data["result"]["rows"] == [["revenue", "Sum", 100]]
+    assert "sum(revenue)" in response.data["evidence"]["calculation"][0]
 
     monkeypatch.setattr("dashboard.ai.service.get_analysis_provider", lambda: PlannedProvider({
         "operation": "aggregate", "value_column": "not_a_column", "aggregation": "sum",
@@ -94,6 +109,32 @@ def test_analyze_api_computes_aggregate_and_does_not_accept_unknown_columns(monk
     }, format="json")
     assert invalid_plan.status_code == 503
     assert "valid value column" in invalid_plan.data["detail"]
+
+
+@pytest.mark.django_db
+def test_analysis_ignores_provider_supplied_numerical_claims_and_persists_unsupported_result(monkeypatch):
+    user = User.objects.create_user(username="evidence-user", password="Strong-pass-209!")
+    dataset = create_dataset(user)
+    client = APIClient()
+    client.force_authenticate(user)
+    monkeypatch.setattr("dashboard.ai.service.get_analysis_provider", lambda: PlannedProvider({
+        "operation": "unsupported",
+        "answer": "Revenue increased 18%.",
+        "result": {"rows": [["Revenue increase", 18]]},
+    }))
+
+    response = client.post(reverse("api_analyze"), {
+        "dataset_id": dataset.pk, "question": "How much did revenue increase?",
+    }, format="json")
+
+    assert response.status_code == 200
+    assert response.data["result"] == {"columns": [], "rows": []}
+    assert "18%" not in response.data["explanation"]
+    assert response.data["evidence"]["fact"] == ["No dataset calculation was performed."]
+    record = AnalysisRecord.objects.get(pk=response.data["analysis_id"])
+    assert record.dataset == dataset
+    assert record.result == response.data["result"]
+    assert record.evidence == response.data["evidence"]
 
 
 @pytest.mark.django_db
@@ -244,3 +285,44 @@ def test_gemini_provider_reports_missing_api_key():
         provider = GeminiAnalysisProvider()
     with pytest.raises(AnalysisProviderError, match="GEMINI_API_KEY"):
         provider.create_plan("Question", [])
+
+
+def test_local_provider_plans_ranking_from_question():
+    from dashboard.ai.providers.local_provider import LocalAnalysisProvider
+
+    provider = LocalAnalysisProvider()
+    schema = [
+        {"name": "product", "data_type": "object"},
+        {"name": "units", "data_type": "int64"},
+        {"name": "revenue", "data_type": "int64"},
+    ]
+    plan = provider.create_plan("What are the best selling products?", schema)
+    assert plan["operation"] == "top_groups"
+    assert plan["group_by"] == "product"
+    assert plan["aggregation"] == "sum"
+    assert plan["order"] == "desc"
+
+
+def test_local_provider_plans_total_and_count():
+    from dashboard.ai.providers.local_provider import LocalAnalysisProvider
+
+    provider = LocalAnalysisProvider()
+    schema = [
+        {"name": "product", "data_type": "object"},
+        {"name": "revenue", "data_type": "int64"},
+    ]
+    aggregate = provider.create_plan("What is the total revenue?", schema)
+    assert aggregate["operation"] == "aggregate"
+    assert aggregate["value_column"] == "revenue"
+    assert aggregate["aggregation"] == "sum"
+
+    rows = provider.create_plan("How many rows?", schema)
+    assert rows["operation"] == "count_rows"
+    assert rows["value_column"] is None
+
+
+def test_factory_creates_local_provider_by_default():
+    from dashboard.ai.providers.factory import get_analysis_provider
+
+    with override_settings(AI_PROVIDER="local"):
+        assert type(get_analysis_provider()).__name__ == "LocalAnalysisProvider"

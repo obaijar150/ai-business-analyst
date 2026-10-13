@@ -1,4 +1,5 @@
 import json
+import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -47,25 +48,39 @@ class GeminiAnalysisProvider(AnalysisProvider):
             headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
             method="POST",
         )
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                completion = json.loads(response.read().decode("utf-8"))
-            content = completion["candidates"][0]["content"]["parts"][0]["text"]
-            plan = json.loads(content)
-        except HTTPError as error:
-            if error.code == 429:
-                message = "Gemini's free-tier rate limit was reached. Wait a moment and retry, or check your Google AI Studio usage limits."
-            elif error.code in {401, 403}:
-                message = "Gemini rejected this API key or its permissions. Check that the key is valid and restricted to the Gemini API."
-            elif error.code == 400:
-                message = "Gemini could not process this request. Check the configured model and try again."
-            else:
-                message = "Gemini could not process this request. Check the API key, model, and Google AI Studio project settings."
-            raise AnalysisProviderError(message) from error
-        except (URLError, TimeoutError) as error:
-            raise AnalysisProviderError("Could not reach the Gemini API. Try again in a moment.") from error
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
-            raise AnalysisProviderError("Gemini returned an unreadable analysis plan. Please rephrase your question.") from error
+        transient_http_statuses = {429, 500, 502, 503, 504}
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    completion = json.loads(response.read().decode("utf-8"))
+                content = completion["candidates"][0]["content"]["parts"][0]["text"]
+                plan = json.loads(content)
+                break
+            except HTTPError as error:
+                if error.code in transient_http_statuses and attempt < max_attempts - 1:
+                    time.sleep(1 + attempt)
+                    continue
+                if error.code == 429:
+                    message = "Gemini's free-tier rate limit was reached. Wait a moment and retry, or check your Google AI Studio usage limits."
+                elif error.code in {401, 403}:
+                    message = "Gemini rejected this API key or its permissions. Check that the key is valid and restricted to the Gemini API."
+                elif error.code == 400:
+                    message = "Gemini could not process this request. Check the configured model and try again."
+                elif error.code == 503:
+                    message = "Gemini is temporarily unavailable due to high demand. Wait 10-30 seconds and retry."
+                elif error.code in {500, 502, 504}:
+                    message = "Gemini is temporarily unavailable. Try again in a moment."
+                else:
+                    message = "Gemini could not process this request. Check the API key, model, and Google AI Studio project settings."
+                raise AnalysisProviderError(message) from error
+            except (URLError, TimeoutError) as error:
+                if attempt < max_attempts - 1:
+                    time.sleep(1 + attempt)
+                    continue
+                raise AnalysisProviderError("Could not reach the Gemini API. Try again in a moment.") from error
+            except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+                raise AnalysisProviderError("Gemini returned an unreadable analysis plan. Please rephrase your question.") from error
 
         if not isinstance(plan, dict):
             raise AnalysisProviderError("Gemini returned an invalid analysis plan. Please rephrase your question.")

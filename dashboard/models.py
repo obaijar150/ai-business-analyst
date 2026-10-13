@@ -23,3 +23,20 @@ class Dataset(models.Model):
     def delete(self, *args, **kwargs):
         self.file.delete(save=False)
         return super().delete(*args, **kwargs)
+
+
+class AnalysisRecord(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="analysis_records")
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="analyses")
+    question = models.TextField()
+    analysis = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+    explanation = models.TextField()
+    evidence = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"Analysis of {self.dataset.name} by {self.owner}"
