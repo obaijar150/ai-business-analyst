@@ -9,6 +9,12 @@
   <link rel="stylesheet" href="{% static 'dashboard/css/styles.css' %}">
 </head>
 <body>
+  <nav style="padding:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
+    <a href="{% url 'dashboard' %}">Dashboard</a>
+    <a href="{% url 'datasets' %}">Datasets</a>
+    <a href="{% url 'analyst' %}">AI Analyst</a>
+    <a href="{% url 'insights' %}">Insights</a>
+  </nav>
   <main class="main" style="margin-left:0">
     <div class="content">
       <div class="welcome-row"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>Business Insights</h1><p class="subtitle">Automated KPIs, trends, anomalies, and recommendations.</p></div></div>
