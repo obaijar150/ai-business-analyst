@@ -201,3 +201,20 @@ class InsightsAPIView(APIView):
             return Response(generate_insights(dataset))
         except AnalysisProviderError as error:
             return Response({"detail": str(error)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+class AnalysisListAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JWTAuthentication, SessionAuthentication)
+
+    def get(self, request):
+        records = AnalysisRecord.objects.filter(owner=request.user).order_by("-created_at")[:10]
+        return Response([
+            {
+                "id": record.pk,
+                "question": record.question,
+                "dataset": record.dataset.name,
+                "created_at": record.created_at.isoformat(),
+            }
+            for record in records
+        ])
