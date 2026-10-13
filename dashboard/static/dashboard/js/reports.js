@@ -75,7 +75,15 @@
     (report.recommendations || []).forEach((item) => recs.append(el('li', item)));
     const anomalies = document.getElementById('report-anomalies'); anomalies.replaceChildren();
     (report.anomalies || []).forEach((item) => anomalies.append(el('li', JSON.stringify(item))));
-    document.getElementById('report-evidence').textContent = JSON.stringify(report.evidence || {}, null, 2);
+    const evidenceBox = document.getElementById('report-evidence');
+    evidenceBox.replaceChildren();
+    Object.entries(report.evidence || {}).forEach(([key, value]) => {
+      const item = document.createElement('div');
+      item.className = 'activity-item';
+      item.append(el('b', key.replace(/_/g, ' ')));
+      item.append(el('div', String(value)));
+      evidenceBox.append(item);
+    });
   }
 
   async function deleteReport(id) {
