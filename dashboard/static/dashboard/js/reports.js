@@ -8,6 +8,12 @@
 
   function el(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
 
+  function csrfToken() {
+    const prefix = 'csrftoken=';
+    const cookie = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(prefix));
+    return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : '';
+  }
+
   async function loadDatasets() {
     const response = await fetch('/api/datasets/', { credentials: 'same-origin' });
     if (!response.ok) throw new Error('Could not load datasets.');
@@ -44,7 +50,7 @@
     const response = await fetch('/api/reports/', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify({ dataset_id: Number(select.value), title: titleInput.value.trim() || undefined }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -74,7 +80,7 @@
 
   async function deleteReport(id) {
     if (!confirm('Delete this report?')) return;
-    await fetch(`/api/reports/${id}/`, { method: 'DELETE', credentials: 'same-origin' });
+    await fetch(`/api/reports/${id}/`, { method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRFToken': csrfToken() } });
     await loadReports();
     document.getElementById('report-detail').hidden = true;
   }
