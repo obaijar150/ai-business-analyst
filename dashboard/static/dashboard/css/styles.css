@@ -44,3 +44,4 @@ table tbody tr:hover { background: #fbfaff; }
 @media (max-width: 900px) { .main { margin-left: 0; } .content { padding: 18px; } .sidebar { transform: translateX(-100%); transition: transform .22s ease; } .sidebar.open { transform: translateX(0); } .topbar { padding: 10px 14px; } .welcome-row { flex-direction: column; align-items: flex-start; } }
 @media (max-width: 600px) { .metric-grid, .kpi-grid, .dataset-stats { grid-template-columns: 1fr !important; } .panel { padding: 14px; } }
 .sidebar-backdrop.visible { background: rgba(20,18,45,.35); backdrop-filter: blur(2px); }
+.menu-toggle{display:inline-grid;place-items:center;min-width:42px;min-height:42px;margin:0;padding:0;border:1px solid #ececf2;background:#fff;color:#202338;border-radius:10px;font:700 24px 'Manrope',sans-serif;cursor:pointer;box-shadow:0 3px 10px rgba(32,35,56,.05)}.menu-toggle:hover,.menu-toggle:focus-visible{background:#f1effd;color:#5845c4;outline:none}
